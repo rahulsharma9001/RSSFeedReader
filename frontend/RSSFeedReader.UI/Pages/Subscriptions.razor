@@ -1,0 +1,97 @@
+@page "/subscriptions"
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<PageTitle>Subscriptions</PageTitle>
+
+<h1>RSS Feed Reader</h1>
+
+<div class="mb-3">
+    <label for="feedUrl" class="form-label">Add a feed URL</label>
+    <div class="input-group">
+        <input id="feedUrl" class="form-control" @bind="newUrl" placeholder="https://example.com/feed.xml" />
+        <button class="btn btn-primary" @onclick="AddSubscription">Add</button>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+@if (subscriptions is null)
+{
+    <p>Loading subscriptions...</p>
+}
+else if (subscriptions.Count == 0)
+{
+    <p>No subscriptions yet.</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var item in subscriptions)
+        {
+            <li class="list-group-item">@item.Url</li>
+        }
+    </ul>
+}
+
+@code {
+    private string newUrl = string.Empty;
+    private string? errorMessage;
+    private List<SubscriptionItem>? subscriptions;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSubscriptions();
+    }
+
+    private async Task AddSubscription()
+    {
+        errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(newUrl))
+        {
+            errorMessage = "A valid subscription URL is required.";
+            return;
+        }
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("subscriptions", new { url = newUrl.Trim() });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = "A valid subscription URL is required.";
+                return;
+            }
+
+            newUrl = string.Empty;
+            await LoadSubscriptions();
+        }
+        catch
+        {
+            errorMessage = "Unable to add the subscription right now.";
+        }
+    }
+
+    private async Task LoadSubscriptions()
+    {
+        try
+        {
+            subscriptions = await Http.GetFromJsonAsync<List<SubscriptionItem>>("subscriptions") ?? new();
+        }
+        catch
+        {
+            subscriptions = new();
+        }
+    }
+
+    private class SubscriptionItem
+    {
+        public int Id { get; set; }
+        public string Url { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+    }
+}
